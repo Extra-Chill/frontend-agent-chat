@@ -6,9 +6,8 @@
  * On multisite, a network-wide option serves as the default for all sites.
  * Per-site options override the network default (including opting out).
  *
- * Visibility is determined by Agents API's chat permission surface where
- * available, with Data Machine's access helper retained as a compatibility
- * adapter for existing installs.
+ * Visibility is determined by Agents API's access surface where available,
+ * with legacy Data Machine access retained only as a compatibility fallback.
  *
  * Resolution order:
  *   1. Per-site option  (get_option)
@@ -81,11 +80,11 @@ function frontend_agent_chat_get_config(): array {
 /**
  * Check whether the current user can see the chat widget.
  *
- * Defers entirely to Data Machine's agent access system. If DM's
- * PermissionHelper is available, uses can_access_agent(). Otherwise
- * falls back to manage_options capability.
+ * Prefers Agents API access abilities/helpers and falls back to the legacy
+ * Data Machine helper for installs that have not adopted Agents API access
+ * stores yet. Site administrators retain access as a final capability gate.
  *
- * @param array $agent Resolved agent row from data_machine_frontend_chat_resolve_agent.
+ * @param array|null $agent Resolved agent row from frontend_agent_chat_resolve_agent.
  * @return bool
  */
 function frontend_agent_chat_user_can_see( ?array $agent ): bool {
@@ -93,16 +92,112 @@ function frontend_agent_chat_user_can_see( ?array $agent ): bool {
 		return false;
 	}
 
-	$allowed = current_user_can( 'manage_options' );
-
-	if ( ! $allowed && class_exists( '\DataMachine\Abilities\PermissionHelper' ) ) {
-		$agent_id = (int) ( $agent['agent_id'] ?? 0 );
-		$allowed  = $agent_id > 0 && \DataMachine\Abilities\PermissionHelper::can_access_agent( $agent_id, 'viewer' );
+	$allowed = frontend_agent_chat_current_user_can_access_agent( $agent );
+	if ( ! $allowed ) {
+		$allowed = current_user_can( 'manage_options' );
 	}
 
 	$allowed = (bool) apply_filters( 'frontend_agent_chat_user_can_see', $allowed, $agent );
 
 	return (bool) apply_filters( 'data_machine_frontend_chat_user_can_see', $allowed, $agent );
+}
+
+/**
+ * Check the current user's access to a resolved agent.
+ *
+ * @param array|null $agent Resolved agent row.
+ * @return bool
+ */
+function frontend_agent_chat_current_user_can_access_agent( ?array $agent ): bool {
+	$agent_slug = frontend_agent_chat_get_agent_access_slug( $agent );
+	if ( '' === $agent_slug ) {
+		return false;
+	}
+
+	$minimum_role = class_exists( 'WP_Agent_Access_Grant' ) ? WP_Agent_Access_Grant::ROLE_VIEWER : 'viewer';
+	$allowed      = frontend_agent_chat_can_access_agent_via_ability( $agent_slug, $minimum_role );
+	if ( true === $allowed || ( false === $allowed && frontend_agent_chat_agents_api_has_access_store() ) ) {
+		return $allowed;
+	}
+
+	if ( class_exists( 'WP_Agent_Access' ) ) {
+		$allowed = WP_Agent_Access::can_current_principal_access_agent( $agent_slug, $minimum_role );
+		if ( $allowed || frontend_agent_chat_agents_api_has_access_store() ) {
+			return $allowed;
+		}
+	}
+
+	if ( class_exists( '\DataMachine\Abilities\PermissionHelper' ) ) {
+		$agent_id = (int) ( $agent['agent_id'] ?? 0 );
+		return $agent_id > 0 && \DataMachine\Abilities\PermissionHelper::can_access_agent( $agent_id, $minimum_role );
+	}
+
+	return false;
+}
+
+/**
+ * Check whether Agents API can discover a host access store.
+ *
+ * @return bool
+ */
+function frontend_agent_chat_agents_api_has_access_store(): bool {
+	static $has_access_store = null;
+
+	if ( null === $has_access_store ) {
+		$class_name = 'WP_Agent_Access';
+		$callback   = array( $class_name, 'get_store' );
+		$store      = class_exists( $class_name ) && is_callable( $callback ) ? call_user_func( $callback ) : null;
+
+		$has_access_store = interface_exists( 'WP_Agent_Access_Store' ) && $store instanceof WP_Agent_Access_Store;
+	}
+
+	return $has_access_store;
+}
+
+/**
+ * Check agent access through the Agents API ability when available.
+ *
+ * @param string $agent_slug   Registered agent slug/id.
+ * @param string $minimum_role Minimum access role.
+ * @return bool|null Access decision, or null when the ability is unavailable.
+ */
+function frontend_agent_chat_can_access_agent_via_ability( string $agent_slug, string $minimum_role ): ?bool {
+	$ability = function_exists( 'wp_get_ability' ) ? wp_get_ability( 'agents/can-access-agent' ) : null;
+	if ( ! $ability ) {
+		return null;
+	}
+
+	$result = $ability->execute(
+		array(
+			'agent'        => $agent_slug,
+			'minimum_role' => $minimum_role,
+		)
+	);
+
+	if ( is_wp_error( $result ) || ! is_array( $result ) || ! array_key_exists( 'allowed', $result ) ) {
+		return false;
+	}
+
+	return (bool) $result['allowed'];
+}
+
+/**
+ * Resolve the registered agent slug/id used by Agents API access checks.
+ *
+ * @param array|null $agent Resolved agent row.
+ * @return string
+ */
+function frontend_agent_chat_get_agent_access_slug( ?array $agent ): string {
+	if ( ! is_array( $agent ) ) {
+		return '';
+	}
+
+	$slug = (string) ( $agent['agent_slug'] ?? '' );
+	if ( '' === $slug ) {
+		$slug = (string) ( $agent['slug'] ?? '' );
+	}
+
+	return sanitize_title( $slug );
 }
 
 /**
