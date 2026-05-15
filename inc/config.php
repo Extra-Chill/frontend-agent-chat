@@ -19,6 +19,10 @@ function frontend_agent_chat_get_config(): array {
 		'agent_slug'       => '',
 		'description'      => __( 'Your AI assistant.', 'frontend-agent-chat' ),
 		'enabled'          => false,
+		'labels'           => array(
+			'agent_switcher_title' => __( 'Agent', 'frontend-agent-chat' ),
+			'agent_select_label'   => __( 'Select chat agent', 'frontend-agent-chat' ),
+		),
 		'loading_messages' => true,
 	);
 
@@ -106,7 +110,7 @@ function frontend_agent_chat_get_active_agent_slug(): string {
  * Normalize an Agents API descriptor for frontend chat use.
  *
  * @param array $agent Raw agent descriptor.
- * @return array|null Normalized descriptor or null.
+	 * @return array{agent_slug:string,agent_name:string,agent_description:string,meta:array}|null Normalized descriptor or null.
  */
 function frontend_agent_chat_normalize_agent( array $agent ): ?array {
 	$slug = sanitize_title( (string) ( $agent['slug'] ?? $agent['agent_slug'] ?? '' ) );

@@ -137,6 +137,20 @@
 	flex: 1;
 }
 
+.frontend-agent-chat__agent-switcher {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.frontend-agent-chat__agent-label {
+	flex-shrink: 0;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--frontend-agent-chat-text-muted, #64748b);
+}
+
 .frontend-agent-chat__title {
 	display: block;
 	overflow: hidden;
@@ -149,7 +163,9 @@
 }
 
 .frontend-agent-chat__agent-select {
-	width: 100%;
+	width: auto;
+	min-width: 0;
+	flex: 1;
 	max-width: 260px;
 	min-height: 36px;
 	padding: 0 32px 0 12px;

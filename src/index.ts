@@ -33,6 +33,10 @@ declare global {
 			agentsPath: string;
 			agentName: string;
 			agentDescription: string;
+			labels?: {
+				agent_switcher_title?: string;
+				agent_select_label?: string;
+			};
 			loadingMessages?: boolean | {
 				mode?: 'default' | 'extend' | 'override';
 				messages?: string[];
@@ -74,6 +78,7 @@ function init(): void {
 			agentsPath: config.agentsPath,
 			agentName: config.agentName,
 			agentDescription: config.agentDescription,
+			labels: config.labels,
 			loadingMessages: config.loadingMessages ?? true,
 		} )
 	);

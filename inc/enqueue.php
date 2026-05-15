@@ -35,7 +35,9 @@ function frontend_agent_chat_enqueue() {
 	if ( ! empty( $config['agent_slug'] ) ) {
 		$agent = frontend_agent_chat_resolve_agent( (string) $config['agent_slug'] );
 	}
-	$agent = $agent ?: $agents[0];
+	if ( ! $agent ) {
+		$agent = $agents[0];
+	}
 
 	$build_dir = FRONTEND_AGENT_CHAT_PLUGIN_DIR . 'build/';
 	$build_url = FRONTEND_AGENT_CHAT_PLUGIN_URL . 'build/';
@@ -70,6 +72,7 @@ function frontend_agent_chat_enqueue() {
 		'agentsPath'       => '/frontend-agent-chat/v1/agents',
 		'agentName'        => (string) ( $agent['agent_name'] ?? $agent['label'] ?? $config['agent_slug'] ),
 		'agentDescription' => (string) ( $agent['agent_description'] ?? $agent['description'] ?? $config['description'] ),
+		'labels'           => is_array( $config['labels'] ?? null ) ? $config['labels'] : array(),
 	);
 
 	if ( ! empty( $config['loading_messages'] ) ) {

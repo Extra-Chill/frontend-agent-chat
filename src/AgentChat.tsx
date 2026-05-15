@@ -39,6 +39,10 @@ interface AgentChatProps {
 	agentsPath: string;
 	agentName: string;
 	agentDescription: string;
+	labels?: {
+		agent_switcher_title?: string;
+		agent_select_label?: string;
+	};
 	loadingMessages?: boolean | {
 		mode?: 'default' | 'extend' | 'override';
 		messages?: string[];
@@ -167,6 +171,7 @@ export default function AgentChat( {
 	agentsPath,
 	agentName,
 	agentDescription,
+	labels,
 	loadingMessages = true,
 }: AgentChatProps ) {
 	const [ isOpen, setIsOpen ] = useState( false );
@@ -185,6 +190,8 @@ export default function AgentChat( {
 	const activeAgentSlug = selectedAgent?.slug ?? '';
 	const activeAgentName = selectedAgent?.name ?? agentName;
 	const activeAgentDescription = selectedAgent?.description ?? agentDescription;
+	const agentSwitcherTitle = labels?.agent_switcher_title ?? __( 'Agent', 'frontend-agent-chat' );
+	const agentSelectLabel = labels?.agent_select_label ?? __( 'Select chat agent', 'frontend-agent-chat' );
 	const fabLabel = __( 'Brain Chat', 'frontend-agent-chat' );
 	const agentFetch = useMemo( () => createAgentFetch( activeAgentSlug ), [ activeAgentSlug ] );
 	const open = useCallback( () => setIsOpen( true ), [] );
@@ -285,18 +292,27 @@ export default function AgentChat( {
 					'div',
 					{ className: 'frontend-agent-chat__agent' },
 					agents.length > 1 ? createElement(
-						'select',
-						{
-							className: 'frontend-agent-chat__agent-select',
-							value: activeAgentSlug,
-							onChange: switchAgent,
-							'aria-label': __( 'Select chat agent', 'frontend-agent-chat' ),
-						},
-						agents.map( ( agent ) => createElement(
-							'option',
-							{ key: agent.slug, value: agent.slug },
-							agent.name
-						) )
+						'label',
+						{ className: 'frontend-agent-chat__agent-switcher' },
+						createElement(
+							'span',
+							{ className: 'frontend-agent-chat__agent-label' },
+							agentSwitcherTitle
+						),
+						createElement(
+							'select',
+							{
+								className: 'frontend-agent-chat__agent-select',
+								value: activeAgentSlug,
+								onChange: switchAgent,
+								'aria-label': agentSelectLabel,
+							},
+							agents.map( ( agent ) => createElement(
+								'option',
+								{ key: agent.slug, value: agent.slug },
+								agent.name
+							) )
+						)
 					) : createElement(
 						'span',
 						{ className: 'frontend-agent-chat__title' },
