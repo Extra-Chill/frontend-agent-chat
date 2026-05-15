@@ -38,16 +38,12 @@ function frontend_agent_chat_get_config(): array {
 }
 
 /**
- * Check whether the current user can see the chat widget.
+ * Check whether the current request principal can see the chat widget.
  *
  * @param array|null $agent Resolved agent descriptor.
  * @return bool
  */
 function frontend_agent_chat_user_can_see( ?array $agent ): bool {
-	if ( ! is_user_logged_in() ) {
-		return false;
-	}
-
 	$agent_slug = frontend_agent_chat_get_agent_access_slug( $agent );
 	if ( '' === $agent_slug ) {
 		return false;
@@ -66,7 +62,7 @@ function frontend_agent_chat_user_can_see( ?array $agent ): bool {
 }
 
 /**
- * List accessible Agents API agents for the current user.
+ * List accessible Agents API agents for the current request principal.
  *
  * @return array<int,array{agent_slug:string,agent_name:string,agent_description:string,meta:array}>
  */

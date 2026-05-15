@@ -259,24 +259,6 @@ function frontend_agent_chat_rest_send_message( WP_REST_Request $request ) {
 		return new WP_Error( 'frontend_agent_chat_missing_agent', __( 'Agent is required.', 'frontend-agent-chat' ), array( 'status' => 400 ) );
 	}
 
-	if ( '' === $session_id ) {
-		$created = frontend_agent_chat_execute_ability(
-			'agents/create-conversation-session',
-			array(
-				'agent'   => $agent_slug,
-				'context' => 'frontend-agent-chat',
-			)
-		);
-		if ( is_wp_error( $created ) ) {
-			return $created;
-		}
-		$session_id = frontend_agent_chat_extract_session_id( is_array( $created['session'] ?? null ) ? $created['session'] : array() );
-	}
-
-	if ( '' === $session_id ) {
-		return new WP_Error( 'frontend_agent_chat_session_create_failed', __( 'The conversation session ability did not return a session ID.', 'frontend-agent-chat' ), array( 'status' => 500 ) );
-	}
-
 	$attachments = $request->get_param( 'attachments' );
 	$chat_input  = array(
 		'agent'          => $agent_slug,
