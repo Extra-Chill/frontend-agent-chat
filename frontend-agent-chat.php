@@ -25,6 +25,7 @@ define( 'FRONTEND_AGENT_CHAT_VERSION', '0.7.3' );
 define( 'FRONTEND_AGENT_CHAT_PLUGIN_FILE', __FILE__ );
 define( 'FRONTEND_AGENT_CHAT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'FRONTEND_AGENT_CHAT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'FRONTEND_AGENT_CHAT_BROWSER_COOKIE', 'frontend_agent_chat_browser' );
 
 require_once FRONTEND_AGENT_CHAT_PLUGIN_DIR . 'inc/config.php';
 require_once FRONTEND_AGENT_CHAT_PLUGIN_DIR . 'inc/rest.php';

@@ -90,12 +90,167 @@ function frontend_agent_chat_list_accessible_agents(): array {
  * @return string Active agent slug or empty string.
  */
 function frontend_agent_chat_get_active_agent_slug(): string {
+	if ( ! is_user_logged_in() ) {
+		$preferences = frontend_agent_chat_get_browser_preferences();
+		return sanitize_title( (string) ( $preferences['active_agent_slug'] ?? '' ) );
+	}
+
 	$result = frontend_agent_chat_execute_ability( 'datamachine/get-active-agent', array() );
 	if ( is_wp_error( $result ) || ! is_array( $result ) || empty( $result['success'] ) ) {
 		return '';
 	}
 
 	return sanitize_title( (string) ( $result['agent_slug'] ?? '' ) );
+}
+
+/**
+ * Persist an anonymous browser preference keyed by the browser principal.
+ *
+ * Logged-in users keep using Data Machine's normal user-owned preference.
+ *
+ * @param string $agent_slug Active agent slug.
+ * @return bool Whether the preference was stored.
+ */
+function frontend_agent_chat_set_browser_active_agent_slug( string $agent_slug ): bool {
+	if ( is_user_logged_in() ) {
+		return false;
+	}
+
+	$principal = frontend_agent_chat_get_browser_principal();
+	if ( ! $principal ) {
+		return false;
+	}
+
+	return update_option(
+		frontend_agent_chat_browser_preferences_option_name( $principal['id'] ),
+		array( 'active_agent_slug' => sanitize_title( $agent_slug ) ),
+		false
+	);
+}
+
+/**
+ * Read anonymous browser preferences.
+ *
+ * @return array Browser preference map.
+ */
+function frontend_agent_chat_get_browser_preferences(): array {
+	$principal = frontend_agent_chat_get_browser_principal();
+	if ( ! $principal ) {
+		return array();
+	}
+
+	$preferences = get_option( frontend_agent_chat_browser_preferences_option_name( $principal['id'] ), array() );
+	return is_array( $preferences ) ? $preferences : array();
+}
+
+/**
+ * Build the option name for browser-scoped preferences.
+ *
+ * @param string $principal_id Stable non-secret browser principal identifier.
+ * @return string Option name.
+ */
+function frontend_agent_chat_browser_preferences_option_name( string $principal_id ): string {
+	return 'frontend_agent_chat_browser_preferences_' . md5( $principal_id );
+}
+
+/**
+ * Ensure an anonymous browser principal cookie exists for this response.
+ *
+ * @return array|null Browser principal descriptor, or null for logged-in users/failures.
+ */
+function frontend_agent_chat_ensure_browser_principal_cookie(): ?array {
+	if ( is_user_logged_in() ) {
+		return null;
+	}
+
+	$token = frontend_agent_chat_get_browser_principal_token();
+	if ( '' === $token ) {
+		$token = wp_generate_password( 64, false, false );
+	}
+
+	frontend_agent_chat_set_browser_principal_cookie( $token );
+	return frontend_agent_chat_browser_principal_from_token( $token );
+}
+
+/**
+ * Get the current anonymous browser principal descriptor.
+ *
+ * @return array|null Browser principal descriptor, or null when unavailable.
+ */
+function frontend_agent_chat_get_browser_principal(): ?array {
+	if ( is_user_logged_in() ) {
+		return null;
+	}
+
+	$token = frontend_agent_chat_get_browser_principal_token();
+	return '' === $token ? null : frontend_agent_chat_browser_principal_from_token( $token );
+}
+
+/**
+ * Read and sanitize the browser principal token from the HttpOnly cookie.
+ *
+ * @return string Cookie token, or empty string.
+ */
+function frontend_agent_chat_get_browser_principal_token(): string {
+	$token = isset( $_COOKIE[ FRONTEND_AGENT_CHAT_BROWSER_COOKIE ] ) ? (string) wp_unslash( $_COOKIE[ FRONTEND_AGENT_CHAT_BROWSER_COOKIE ] ) : '';
+	return preg_match( '/^[A-Za-z0-9]{32,128}$/', $token ) ? $token : '';
+}
+
+/**
+ * Convert a cookie token into a non-secret principal descriptor.
+ *
+ * @param string $token Opaque browser token.
+ * @return array Browser principal descriptor.
+ */
+function frontend_agent_chat_browser_principal_from_token( string $token ): array {
+	return array(
+		'type'    => 'browser',
+		'id'      => 'browser:' . hash_hmac( 'sha256', $token, wp_salt( 'auth' ) ),
+		'context' => 'frontend-agent-chat',
+	);
+}
+
+/**
+ * Set the anonymous browser principal cookie.
+ *
+ * @param string $token Opaque browser token.
+ * @return void
+ */
+function frontend_agent_chat_set_browser_principal_cookie( string $token ): void {
+	$secure = (bool) apply_filters( 'frontend_agent_chat_browser_cookie_secure', true );
+	$path   = defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/';
+
+	setcookie(
+		FRONTEND_AGENT_CHAT_BROWSER_COOKIE,
+		$token,
+		array(
+			'expires'  => time() + YEAR_IN_SECONDS,
+			'path'     => $path,
+			'domain'   => defined( 'COOKIE_DOMAIN' ) ? COOKIE_DOMAIN : '',
+			'secure'   => $secure,
+			'httponly' => true,
+			'samesite' => 'Lax',
+		)
+	);
+
+	$_COOKIE[ FRONTEND_AGENT_CHAT_BROWSER_COOKIE ] = $token;
+}
+
+/**
+ * Add browser-principal context to ability input when available.
+ *
+ * @param array $input Ability input.
+ * @return array Ability input with browser principal context.
+ */
+function frontend_agent_chat_add_browser_principal_input( array $input ): array {
+	$principal = frontend_agent_chat_get_browser_principal();
+	if ( ! $principal ) {
+		return $input;
+	}
+
+	$input['principal']         = $principal;
+	$input['browser_principal'] = $principal;
+	return $input;
 }
 
 /**
