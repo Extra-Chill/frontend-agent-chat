@@ -185,7 +185,7 @@ export default function AgentChat( {
 	const activeAgentSlug = selectedAgent?.slug ?? '';
 	const activeAgentName = selectedAgent?.name ?? agentName;
 	const activeAgentDescription = selectedAgent?.description ?? agentDescription;
-	const fabLabel = __( '🧠 Brain Chat', 'frontend-agent-chat' );
+	const fabLabel = __( 'Brain Chat', 'frontend-agent-chat' );
 	const agentFetch = useMemo( () => createAgentFetch( activeAgentSlug ), [ activeAgentSlug ] );
 	const open = useCallback( () => setIsOpen( true ), [] );
 	const close = useCallback( () => setIsOpen( false ), [] );
@@ -210,9 +210,9 @@ export default function AgentChat( {
 						return current;
 					}
 
-					const activeAgentSlug = data.active_agent_slug ?? '';
-					if ( activeAgentSlug && nextAgents.some( ( agent ) => agent.slug === activeAgentSlug ) ) {
-						return activeAgentSlug;
+					const preferredAgentSlug = data.active_agent_slug ?? '';
+					if ( preferredAgentSlug && nextAgents.some( ( agent ) => agent.slug === preferredAgentSlug ) ) {
+						return preferredAgentSlug;
 					}
 
 					return nextAgents[0].slug;
@@ -263,7 +263,8 @@ export default function AgentChat( {
 					activeAgentName
 				),
 			},
-			fabLabel,
+			createElement( 'span', { className: 'frontend-agent-chat__fab-icon', 'aria-hidden': true }, '🧠' ),
+			createElement( 'span', { className: 'frontend-agent-chat__fab-label' }, fabLabel ),
 			unreadCount > 0 &&
 				createElement(
 					'span',

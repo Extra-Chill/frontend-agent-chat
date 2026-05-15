@@ -19,6 +19,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	gap: 0.5rem;
 	height: 56px;
 	padding: 0 24px;
 	border: 1px solid var(--frontend-agent-chat-fab-border-color, transparent);
@@ -34,6 +35,17 @@
 	pointer-events: auto;
 	opacity: 1;
 	visibility: visible;
+}
+
+.frontend-agent-chat__fab-icon {
+	display: inline-flex;
+	font-size: 1.1em;
+	line-height: 1;
+}
+
+.frontend-agent-chat__fab-label {
+	display: inline-flex;
+	line-height: 1;
 }
 
 .frontend-agent-chat__fab:hover {
