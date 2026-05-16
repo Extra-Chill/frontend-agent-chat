@@ -67,9 +67,11 @@ function frontend_agent_chat_enqueue() {
 	$js_config = array(
 		'agentSlug'        => (string) ( $agent['agent_slug'] ?? $config['agent_slug'] ),
 		'basePath'         => '/frontend-agent-chat/v1/chat',
+		'bootstrapPath'    => '/frontend-agent-chat/v1/bootstrap',
 		'agentsPath'       => '/frontend-agent-chat/v1/agents',
 		'agentName'        => (string) ( $agent['agent_name'] ?? $agent['label'] ?? $config['agent_slug'] ),
 		'agentDescription' => (string) ( $agent['agent_description'] ?? $agent['description'] ?? $config['description'] ),
+		'isLoggedIn'       => is_user_logged_in(),
 	);
 
 	if ( ! empty( $config['loading_messages'] ) ) {

@@ -17,6 +17,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 function frontend_agent_chat_register_rest_routes(): void {
 	register_rest_route(
 		'frontend-agent-chat/v1',
+		'/bootstrap',
+		array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => 'frontend_agent_chat_rest_bootstrap',
+			'permission_callback' => 'frontend_agent_chat_rest_can_chat',
+		)
+	);
+
+	register_rest_route(
+		'frontend-agent-chat/v1',
 		'/agents',
 		array(
 			'methods'             => WP_REST_Server::READABLE,
@@ -112,6 +122,30 @@ function frontend_agent_chat_register_rest_routes(): void {
 add_action( 'rest_api_init', 'frontend_agent_chat_register_rest_routes' );
 
 /**
+ * Bootstrap browser-scoped state before anonymous session APIs are used.
+ *
+ * @return WP_REST_Response
+ */
+function frontend_agent_chat_rest_bootstrap(): WP_REST_Response {
+	$had_principal = null !== frontend_agent_chat_get_browser_principal();
+	$principal = frontend_agent_chat_ensure_browser_principal_cookie();
+
+	return rest_ensure_response(
+		array(
+			'success' => true,
+			'data'    => array(
+				'authenticated'             => is_user_logged_in(),
+				'browser_principal_ready'   => is_user_logged_in() || null !== $principal,
+				'had_browser_principal'     => $had_principal,
+				'browser_principal_id'      => is_array( $principal ) ? $principal['id'] : '',
+				'browser_principal_secret'  => false,
+				'session_persistence_scope' => is_user_logged_in() ? 'user' : 'browser',
+			)
+		)
+	);
+}
+
+/**
  * Permission callback for widget REST routes.
  *
  * @return bool
@@ -186,6 +220,22 @@ function frontend_agent_chat_rest_set_active_agent( WP_REST_Request $request ) {
 	}
 	if ( '' === $agent_slug ) {
 		return new WP_Error( 'frontend_agent_chat_missing_agent', __( 'Agent is required.', 'frontend-agent-chat' ), array( 'status' => 400 ) );
+	}
+
+	if ( ! is_user_logged_in() ) {
+		if ( ! frontend_agent_chat_get_browser_principal() ) {
+			return new WP_Error( 'frontend_agent_chat_browser_principal_required', __( 'Browser chat storage needs cookies enabled.', 'frontend-agent-chat' ), array( 'status' => 400 ) );
+		}
+
+		frontend_agent_chat_set_browser_active_agent_slug( $agent_slug );
+		return rest_ensure_response(
+			array(
+				'success' => true,
+				'data'    => array(
+					'agent_slug' => $agent_slug,
+				)
+			)
+		);
 	}
 
 	$result = frontend_agent_chat_execute_ability( 'datamachine/set-active-agent', array( 'agent' => $agent_slug ) );
@@ -285,7 +335,8 @@ function frontend_agent_chat_rest_send_message( WP_REST_Request $request ) {
 	 */
 	$chat_input = apply_filters( 'frontend_agent_chat_chat_input', $chat_input, $request, $agent_slug, $config );
 
-	$result = frontend_agent_chat_execute_ability( 'agents/chat', is_array( $chat_input ) ? $chat_input : array() );
+	$chat_input = frontend_agent_chat_add_browser_principal_input( is_array( $chat_input ) ? $chat_input : array() );
+	$result     = frontend_agent_chat_execute_ability( 'agents/chat', $chat_input );
 
 	if ( is_wp_error( $result ) ) {
 		return $result;
@@ -351,11 +402,11 @@ function frontend_agent_chat_rest_resolve_pending_action( WP_REST_Request $reque
 
 	$result = frontend_agent_chat_execute_ability(
 		'agents/resolve-pending-action',
-		array(
+		frontend_agent_chat_add_browser_principal_input( array(
 			'action_id' => $action_id,
 			'decision'  => $decision,
 			'resolver'  => frontend_agent_chat_current_resolver_id(),
-		)
+		) )
 	);
 
 	if ( is_wp_error( $result ) ) {
@@ -387,11 +438,11 @@ function frontend_agent_chat_rest_list_sessions( WP_REST_Request $request ) {
 
 	$result      = frontend_agent_chat_execute_ability(
 		'agents/list-conversation-sessions',
-		array(
+		frontend_agent_chat_add_browser_principal_input( array(
 			'limit'   => $limit,
 			'agent'   => $agent_slug,
 			'context' => 'frontend-agent-chat',
-		)
+		) )
 	);
 
 	if ( is_wp_error( $result ) ) {
@@ -420,7 +471,7 @@ function frontend_agent_chat_rest_list_sessions( WP_REST_Request $request ) {
  */
 function frontend_agent_chat_rest_get_session( WP_REST_Request $request ) {
 	$session_id = sanitize_text_field( (string) $request['session_id'] );
-	$result     = frontend_agent_chat_execute_ability( 'agents/get-conversation-session', array( 'session_id' => $session_id ) );
+	$result     = frontend_agent_chat_execute_ability( 'agents/get-conversation-session', frontend_agent_chat_add_browser_principal_input( array( 'session_id' => $session_id ) ) );
 	if ( is_wp_error( $result ) ) {
 		return $result;
 	}
@@ -446,7 +497,7 @@ function frontend_agent_chat_rest_get_session( WP_REST_Request $request ) {
  */
 function frontend_agent_chat_rest_delete_session( WP_REST_Request $request ) {
 	$session_id = sanitize_text_field( (string) $request['session_id'] );
-	$result     = frontend_agent_chat_execute_ability( 'agents/delete-conversation-session', array( 'session_id' => $session_id ) );
+	$result     = frontend_agent_chat_execute_ability( 'agents/delete-conversation-session', frontend_agent_chat_add_browser_principal_input( array( 'session_id' => $session_id ) ) );
 	if ( is_wp_error( $result ) ) {
 		return $result;
 	}

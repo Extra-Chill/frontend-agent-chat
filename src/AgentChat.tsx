@@ -36,14 +36,38 @@ import apiFetch from '@wordpress/api-fetch';
 interface AgentChatProps {
 	agentSlug?: string;
 	basePath: string;
+	bootstrapPath?: string;
 	agentsPath: string;
 	agentName: string;
 	agentDescription: string;
+	isLoggedIn?: boolean;
 	loadingMessages?: boolean | {
 		mode?: 'default' | 'extend' | 'override';
 		messages?: string[];
 		interval?: number;
 	};
+}
+
+interface BootstrapResponse {
+	success?: boolean;
+	data?: {
+		authenticated?: boolean;
+		browser_principal_ready?: boolean;
+		had_browser_principal?: boolean;
+		session_persistence_scope?: 'user' | 'browser';
+	};
+}
+
+async function bootstrapBrowserPrincipal( bootstrapPath: string ): Promise< boolean > {
+	const response = await apiFetch( { path: bootstrapPath, method: 'POST' } ) as BootstrapResponse;
+	const data = response.data ?? {};
+	if ( data.authenticated || data.had_browser_principal ) {
+		return data.browser_principal_ready !== false;
+	}
+
+	const verificationResponse = await apiFetch( { path: bootstrapPath, method: 'POST' } ) as BootstrapResponse;
+	const verificationData = verificationResponse.data ?? {};
+	return verificationData.browser_principal_ready !== false && verificationData.had_browser_principal === true;
 }
 
 interface AgentSummary {
@@ -164,13 +188,17 @@ function renderDiffCard( group: ToolGroup ): ReactNode {
 export default function AgentChat( {
 	agentSlug,
 	basePath,
+	bootstrapPath = '/frontend-agent-chat/v1/bootstrap',
 	agentsPath,
 	agentName,
 	agentDescription,
+	isLoggedIn = false,
 	loadingMessages = true,
 }: AgentChatProps ) {
 	const [ isOpen, setIsOpen ] = useState( false );
 	const [ unreadCount, setUnreadCount ] = useState( 0 );
+	const [ browserBootstrapReady, setBrowserBootstrapReady ] = useState( isLoggedIn );
+	const [ browserBootstrapFailed, setBrowserBootstrapFailed ] = useState( false );
 	const [ agents, setAgents ] = useState< AgentSummary[] >( () => agentSlug ? [ {
 		slug: agentSlug,
 		name: agentName,
@@ -194,6 +222,25 @@ export default function AgentChat( {
 		setSelectedAgentSlug( nextAgentSlug );
 		persistActiveAgent( nextAgentSlug );
 	}, [] );
+
+	useEffect( () => {
+		if ( isLoggedIn ) {
+			setBrowserBootstrapReady( true );
+			return;
+		}
+
+		bootstrapBrowserPrincipal( bootstrapPath )
+			.then( ( ready ) => {
+				setBrowserBootstrapReady( ready );
+				setBrowserBootstrapFailed( ! ready );
+			} )
+			.catch( ( err: unknown ) => {
+				setBrowserBootstrapReady( false );
+				setBrowserBootstrapFailed( true );
+				// eslint-disable-next-line no-console
+				console.error( 'AgentChat: failed to bootstrap browser chat storage', err );
+			} );
+	}, [ bootstrapPath, isLoggedIn ] );
 
 	useEffect( () => {
 		apiFetch( { path: agentsPath } )
@@ -317,12 +364,19 @@ export default function AgentChat( {
 			createElement(
 				'div',
 				{ className: 'frontend-agent-chat__body' },
+				! isLoggedIn && createElement(
+					'div',
+					{ className: `frontend-agent-chat__persistence${ browserBootstrapFailed ? ' has-warning' : '' }` },
+					browserBootstrapFailed
+						? __( 'Chat works, but this browser is blocking secure chat-history cookies.', 'frontend-agent-chat' )
+						: __( 'This browser can keep chat history with a secure cookie. Sign in with WordPress.com to save chat history across devices.', 'frontend-agent-chat' )
+				),
 				activeAgentSlug && createElement( Chat, {
 					key: activeAgentSlug,
 					basePath,
 					fetchFn: agentFetch,
 					showTools: true,
-					showSessions: true,
+					showSessions: isLoggedIn || browserBootstrapReady,
 					toolRenderers,
 					placeholder: sprintf(
 						/* translators: %s: agent name. */

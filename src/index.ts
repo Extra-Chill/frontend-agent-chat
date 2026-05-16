@@ -30,9 +30,11 @@ declare global {
 		frontendAgentChatConfig?: {
 			agentSlug?: string;
 			basePath: string;
+			bootstrapPath?: string;
 			agentsPath: string;
 			agentName: string;
 			agentDescription: string;
+			isLoggedIn?: boolean;
 			loadingMessages?: boolean | {
 				mode?: 'default' | 'extend' | 'override';
 				messages?: string[];
@@ -71,9 +73,11 @@ function init(): void {
 		createElement( AgentChat, {
 			agentSlug: config.agentSlug,
 			basePath: config.basePath,
+			bootstrapPath: config.bootstrapPath,
 			agentsPath: config.agentsPath,
 			agentName: config.agentName,
 			agentDescription: config.agentDescription,
+			isLoggedIn: config.isLoggedIn ?? false,
 			loadingMessages: config.loadingMessages ?? true,
 		} )
 	);
