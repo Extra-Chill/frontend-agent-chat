@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0] - 2026-05-17
+
+### Added
+- add expanded frontend chat viewport
+- support request default chat agent
+- filter frontend chat input
+- persist selected frontend agent
+- add frontend agent switcher
+
+### Changed
+- Add browser principal chat persistence
+- Allow principal-based frontend chat access
+- Migrate frontend chat to Agents API
+
+### Fixed
+- route session listing through frontend filters
+- list chat sessions with chat context
+- expose generic persistence CTA
+- send browser execution principal
+- pass browser transcript owner
+- hide tool transcript messages
+- separate brain chat launcher icon
+- update frontend chat fab label
+
 ## [0.7.3] - 2026-05-03
 
 ### Fixed
